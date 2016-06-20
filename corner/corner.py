@@ -24,6 +24,7 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
            truths=None, truth_color="#4682b4",
            scale_hist=False, quantiles=None, verbose=False, fig=None,
            max_n_ticks=5, top_ticks=False, use_math_text=False,
+           rotate_hist=None,
            hist_kwargs=None, **hist2d_kwargs):
     """
     Make a *sick* corner plot showing the projections of a data set in a
@@ -115,6 +116,10 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
     fig : matplotlib.Figure
         Overplot onto the provided figure object.
 
+    rotate_hist : bool or list of bools
+        If True, will rotate all histograms EXCEPT the first column.
+        If a list, will rotate any entries that are True
+
     hist_kwargs : dict
         Any extra keyword arguments to send to the 1-D histogram plots.
 
@@ -202,6 +207,12 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
     plotdim = factor * K + factor * (K - 1.) * whspace
     dim = lbdim + plotdim + trdim
 
+    # Parse the rotate_hist parameter.
+    if rotate_hist is None:
+        rotate_hist = [False] * range(K)
+    elif len(rotate_hist) != K:
+        raise ValueError("Dimension mismatch between rotate_hist and shape")
+
     # Create a new figure if one wasn't provided.
     if fig is None:
         fig, axes = pl.subplots(K, K, figsize=(dim, dim))
@@ -234,6 +245,13 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
             ax = axes
         else:
             ax = axes[i, i]
+
+        # Put rotate_hist into hist_kwargs
+        if rotate_hist[i]:
+            hist_kwargs['orientation'] = 'horizontal'
+        else:
+            hist_kwargs['orientation'] = 'vertical'
+
         # Plot the histograms.
         if smooth1d is None:
             n, _, _ = ax.hist(x, bins=bins[i], weights=weights,
@@ -246,7 +264,16 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
             n = gaussian_filter(n, smooth1d)
             x0 = np.array(list(zip(b[:-1], b[1:]))).flatten()
             y0 = np.array(list(zip(n, n))).flatten()
-            ax.plot(x0, y0, **hist_kwargs)
+
+            # flip the points around for rotate_hist
+            # TODO: double check this!
+            if hist_kwargs['orientation'] == 'vertical':
+                hist_kwargs.pop('orientation')
+                ax.plot(x0, y0, **hist_kwargs)
+            elif hist_kwargs['orientation'] == 'horizontal':
+                hist_kwargs.pop('orientation')
+                ax.plot(y0, x0, **hist_kwargs)
+
 
         if truths is not None and truths[i] is not None:
             ax.axvline(truths[i], color=truth_color)
@@ -286,14 +313,27 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
                 ax.set_title(title, **title_kwargs)
 
         # Set up the axes.
-        ax.set_xlim(range[i])
-        if scale_hist:
-            maxn = np.max(n)
-            ax.set_ylim(-0.1 * maxn, 1.1 * maxn)
+        if rotate_hist[i]:
+            ax.set_ylim(range[i])
+            if scale_hist:
+                maxn = np.max(n)
+                ax.set_xlim(-0.1 * maxn, 1.1 * maxn)
+            else:
+                ax.set_xlim(0, 1.1 * np.max(n))
+            # have to account for skipping out on the next section
+            ax.set_xticklabels([])
+            ax.yaxis.set_major_locator(MaxNLocator(max_n_ticks, prune="lower"))
+            ax.set_yticklabels([])
+            ax.xaxis.set_major_locator(MaxNLocator(max_n_ticks, prune="lower"))
         else:
-            ax.set_ylim(0, 1.1 * np.max(n))
-        ax.set_yticklabels([])
-        ax.xaxis.set_major_locator(MaxNLocator(max_n_ticks, prune="lower"))
+            ax.set_xlim(range[i])
+            if scale_hist:
+                maxn = np.max(n)
+                ax.set_ylim(-0.1 * maxn, 1.1 * maxn)
+            else:
+                ax.set_ylim(0, 1.1 * np.max(n))
+            ax.set_yticklabels([])
+            ax.xaxis.set_major_locator(MaxNLocator(max_n_ticks, prune="lower"))
 
         if i < K - 1:
             if top_ticks:
@@ -301,7 +341,7 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
                 [l.set_rotation(45) for l in ax.get_xticklabels()]
             else:
                 ax.set_xticklabels([])
-        else:
+        elif not rotate_hist[i]:
             [l.set_rotation(45) for l in ax.get_xticklabels()]
             if labels is not None:
                 ax.set_xlabel(labels[i], **label_kwargs)

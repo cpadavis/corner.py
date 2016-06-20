@@ -97,3 +97,11 @@ def test_tight():
 @image_comparison(baseline_images=["reverse"], extensions=["png"])
 def test_reverse():
     _run_corner(ndim=2, range=[(4, -4), (-5, 5)])
+
+@image_comparison(baseline_images=["rotate_hist"], extensions=["png"])
+def test_rotate_hist():
+    _run_corner(ndim=3, rotate_hist=[False, True, False])
+
+@image_comparison(baseline_images=["rotate_hist_smooth1d"], extensions=["png"])
+def test_rotate_hist():
+    _run_corner(ndim=3, rotate_hist=[False, True, False], smooth1d=1.0)
