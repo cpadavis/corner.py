@@ -103,5 +103,5 @@ def test_rotate_hist():
     _run_corner(ndim=3, rotate_hist=[False, True, False])
 
 @image_comparison(baseline_images=["rotate_hist_smooth1d"], extensions=["png"])
-def test_rotate_hist():
+def test_rotate_hist_smooth1d():
     _run_corner(ndim=3, rotate_hist=[False, True, False], smooth1d=1.0)
